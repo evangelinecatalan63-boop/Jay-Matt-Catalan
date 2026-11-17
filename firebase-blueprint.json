@@ -1,0 +1,424 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Registered PBB ALL ACCESS fan or administrator profile.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "displayName": { "type": "string", "maxLength": 80 },
+        "photoUrl": { "type": "string", "maxLength": 250000 },
+        "bio": { "type": "string", "maxLength": 400 },
+        "favoriteHousemateId": { "type": "string", "maxLength": 128 },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "themePreference": { "type": "string", "enum": ["dark", "light"] },
+        "notificationsEnabled": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "role", "themePreference", "notificationsEnabled", "createdAt", "updatedAt"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Administrator allowlist record keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "grantedBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "grantedBy", "createdAt"]
+    },
+    "Housemate": {
+      "title": "Housemate",
+      "description": "Housemate directory profile inside PBB ALL ACCESS.",
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string", "maxLength": 100 },
+        "fullName": { "type": "string", "maxLength": 100 },
+        "nickname": { "type": "string", "maxLength": 60 },
+        "age": { "type": "integer" },
+        "hometown": { "type": "string", "maxLength": 100 },
+        "tagline": { "type": "string", "maxLength": 140 },
+        "biography": { "type": "string", "maxLength": 2500 },
+        "status": { "type": "string", "enum": ["active", "nominated", "evicted", "winner", "guest"] },
+        "network": { "type": "string", "enum": ["Kapamilya", "Kapuso", "House Guest", "Evicted"] },
+        "isImmune": { "type": "boolean" },
+        "nominationPoints": { "type": "integer" },
+        "avatarColor": { "type": "string", "maxLength": 20 },
+        "photoUrl": { "type": "string", "maxLength": 250000 },
+        "featured": { "type": "boolean" },
+        "enteredDay": { "type": "integer" },
+        "orderIndex": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["slug", "fullName", "nickname", "hometown", "tagline", "biography", "status", "avatarColor", "photoUrl", "featured", "enteredDay", "orderIndex", "createdAt", "updatedAt"]
+    },
+    "Livestream": {
+      "title": "Livestream",
+      "description": "Authorized livestream camera feed and availability metadata.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 120 },
+        "cameraLabel": { "type": "string", "maxLength": 60 },
+        "streamUrl": { "type": "string", "maxLength": 500 },
+        "providerType": { "type": "string", "enum": ["youtube", "iframe", "external", "none"] },
+        "status": { "type": "string", "enum": ["live", "offline", "scheduled", "unavailable"] },
+        "isPrimary": { "type": "boolean" },
+        "coverImageUrl": { "type": "string", "maxLength": 250000 },
+        "scheduleSummary": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 500 },
+        "orderIndex": { "type": "integer" },
+        "cropZoom": { "type": "integer" },
+        "cropX": { "type": "integer" },
+        "cropY": { "type": "integer" },
+        "cropTop": { "type": "integer" },
+        "cropBottom": { "type": "integer" },
+        "cropLeft": { "type": "integer" },
+        "cropRight": { "type": "integer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "cameraLabel", "streamUrl", "providerType", "status", "isPrimary", "scheduleSummary", "description", "orderIndex", "updatedAt"]
+    },
+    "StreamScheduleItem": {
+      "title": "StreamScheduleItem",
+      "description": "Livestream schedule slot and upcoming house activity.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 120 },
+        "category": { "type": "string", "enum": ["livestream", "challenge", "nomination", "eviction", "special"] },
+        "startTime": { "type": "string", "maxLength": 60 },
+        "endTime": { "type": "string", "maxLength": 60 },
+        "targetDateIso": { "type": "string", "maxLength": 60 },
+        "cameraLabel": { "type": "string", "maxLength": 60 },
+        "description": { "type": "string", "maxLength": 400 },
+        "isUpcoming": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "category", "startTime", "endTime", "cameraLabel", "description", "isUpcoming", "updatedAt"]
+    },
+    "FanPoll": {
+      "title": "FanPoll",
+      "description": "Unofficial community fan poll with admin-controlled schedule.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 140 },
+        "description": { "type": "string", "maxLength": 600 },
+        "instructions": { "type": "string", "maxLength": 600 },
+        "status": { "type": "string", "enum": ["open", "closed", "scheduled"] },
+        "startDate": { "type": "string", "maxLength": 60 },
+        "endDate": { "type": "string", "maxLength": 60 },
+        "housemateIds": { "type": "array" },
+        "totalVotes": { "type": "integer" },
+        "optionCounts": { "type": "object" },
+        "isFeatured": { "type": "boolean" },
+        "lastVoteId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "instructions", "status", "startDate", "endDate", "housemateIds", "totalVotes", "optionCounts", "isFeatured", "createdAt", "updatedAt"]
+    },
+    "FanPollVote": {
+      "title": "FanPollVote",
+      "description": "Individual fan poll vote record keyed deterministically by pollId_userId.",
+      "type": "object",
+      "properties": {
+        "pollId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "housemateId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["pollId", "userId", "housemateId", "createdAt"]
+    },
+    "NewsArticle": {
+      "title": "NewsArticle",
+      "description": "News article covering official PBB Collab 3.0 dispatches and house updates.",
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string", "maxLength": 160 },
+        "title": { "type": "string", "maxLength": 200 },
+        "excerpt": { "type": "string", "maxLength": 450 },
+        "content": { "type": "string", "maxLength": 12000 },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Latest News",
+            "Housemate Updates",
+            "Nomination Results",
+            "Eviction Updates",
+            "Voting Updates",
+            "Challenges and Tasks",
+            "House Activities",
+            "Official Announcements",
+            "Special Episodes"
+          ]
+        },
+        "imageUrl": { "type": "string", "maxLength": 250000 },
+        "featured_image": { "type": "string", "maxLength": 250000 },
+        "original_article_url": { "type": "string", "maxLength": 500 },
+        "source_name": { "type": "string", "enum": ["GMA Network", "ABS-CBN", "PINOY BIG BROTHER 3.0", "PBB ALL ACCESS"] },
+        "authorName": { "type": "string", "maxLength": 80 },
+        "featured": { "type": "boolean" },
+        "publishedAt": { "type": "string", "maxLength": 60 },
+        "published_at": { "type": "string", "maxLength": 60 },
+        "fetched_at": { "type": "string", "maxLength": 60 },
+        "approval_status": { "type": "string", "enum": ["approved", "pending", "rejected"] },
+        "isAutoCollected": { "type": "boolean" },
+        "created_at": { "type": "string", "maxLength": 60 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["slug", "title", "excerpt", "content", "category", "imageUrl", "authorName", "featured", "publishedAt", "createdAt", "updatedAt"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Platform-wide announcement bulletin.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 120 },
+        "message": { "type": "string", "maxLength": 400 },
+        "priority": { "type": "string", "enum": ["normal", "urgent"] },
+        "active": { "type": "boolean" },
+        "linkUrl": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "message", "priority", "active", "linkUrl", "createdAt"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Global platform configuration, hero banner copy, and maintenance mode controls.",
+      "type": "object",
+      "properties": {
+        "siteName": { "type": "string", "maxLength": 80 },
+        "tagline": { "type": "string", "maxLength": 180 },
+        "heroWelcomeTitle": { "type": "string", "maxLength": 120 },
+        "heroDescription": { "type": "string", "maxLength": 500 },
+        "heroBannerUrl": { "type": "string", "maxLength": 250000 },
+        "maintenanceMode": { "type": "boolean" },
+        "maintenanceMessage": { "type": "string", "maxLength": 200 },
+        "maintenanceReturnTime": { "type": "string", "maxLength": 120 },
+        "announcementBannerEnabled": { "type": "boolean" },
+        "announcementBannerText": { "type": "string", "maxLength": 240 },
+        "contactEmail": { "type": "string", "maxLength": 150 },
+        "socialLinks": { "type": "object" },
+        "seeded": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["siteName", "tagline", "heroWelcomeTitle", "heroDescription", "heroBannerUrl", "maintenanceMode", "maintenanceMessage", "maintenanceReturnTime", "announcementBannerEnabled", "announcementBannerText", "contactEmail", "socialLinks", "seeded", "updatedAt"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Administrative audit trail for dashboard recent activities.",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string", "maxLength": 120 },
+        "actorEmail": { "type": "string", "maxLength": 150 },
+        "targetType": { "type": "string", "maxLength": 60 },
+        "details": { "type": "string", "maxLength": 300 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["action", "actorEmail", "targetType", "details", "createdAt"]
+    },
+    "LiveChatMessage": {
+      "title": "LiveChatMessage",
+      "description": "Real-time viewer message posted in the Live All Access chat room.",
+      "type": "object",
+      "properties": {
+        "feedId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "displayName": { "type": "string", "maxLength": 80 },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "message": { "type": "string", "maxLength": 300 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["feedId", "userId", "displayName", "role", "message", "createdAt"]
+    },
+    "RankingCategory": {
+      "title": "RankingCategory",
+      "description": "Automatic community ranking category (e.g. Nominate, Save, Support) with live vote counts.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 80 },
+        "shortLabel": { "type": "string", "maxLength": 32 },
+        "subtitle": { "type": "string", "maxLength": 140 },
+        "seasonHeader": { "type": "string", "maxLength": 80 },
+        "actionLabel": { "type": "string", "maxLength": 40 },
+        "valueColumnLabel": { "type": "string", "maxLength": 32 },
+        "isOpen": { "type": "boolean" },
+        "housemateIds": { "type": "array" },
+        "counts": { "type": "object" },
+        "totalVotes": { "type": "integer" },
+        "orderIndex": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "shortLabel", "subtitle", "seasonHeader", "actionLabel", "valueColumnLabel", "isOpen", "housemateIds", "counts", "totalVotes", "orderIndex", "createdAt", "updatedAt"]
+    },
+    "RankingVote": {
+      "title": "RankingVote",
+      "description": "Individual ranking category vote record keyed deterministically by categoryId_userId.",
+      "type": "object",
+      "properties": {
+        "categoryId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "housemateId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["categoryId", "userId", "housemateId", "createdAt"]
+    },
+    "VotingPackage": {
+      "title": "VotingPackage",
+      "description": "Gold-themed point packages (100–1,000 points, FREE to ₱90) for independent fan polling.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 220 },
+        "points": { "type": "integer" },
+        "pricePhp": { "type": "integer" },
+        "badgeText": { "type": "string", "maxLength": 40 },
+        "isActive": { "type": "boolean" },
+        "isFreeStarter": { "type": "boolean" },
+        "orderIndex": { "type": "integer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "description", "points", "pricePhp", "badgeText", "isActive", "isFreeStarter", "orderIndex", "updatedAt"]
+    },
+    "VotingWallet": {
+      "title": "VotingWallet",
+      "description": "Per-user verified voting points wallet tracking 100 free starter points and sandbox premium points.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 200 },
+        "freePoints": { "type": "integer" },
+        "premiumPoints": { "type": "integer" },
+        "totalFreeClaimed": { "type": "integer" },
+        "totalPurchasedPoints": { "type": "integer" },
+        "totalPointsSpent": { "type": "integer" },
+        "deviceFingerprintHash": { "type": "string", "maxLength": 128 },
+        "lastVoteId": { "type": "string", "maxLength": 128 },
+        "lastTxId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userEmail", "freePoints", "premiumPoints", "totalFreeClaimed", "totalPurchasedPoints", "totalPointsSpent", "deviceFingerprintHash", "createdAt", "updatedAt"]
+    },
+    "PointVoteRecord": {
+      "title": "PointVoteRecord",
+      "description": "Audit log of point-based community votes cast by a verified user on a FanPoll.",
+      "type": "object",
+      "properties": {
+        "pollId": { "type": "string", "maxLength": 128 },
+        "pollTitle": { "type": "string", "maxLength": 140 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "housemateId": { "type": "string", "maxLength": 128 },
+        "housemateName": { "type": "string", "maxLength": 100 },
+        "pointsUsed": { "type": "integer" },
+        "freePointsUsed": { "type": "integer" },
+        "premiumPointsUsed": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["pollId", "pollTitle", "userId", "housemateId", "housemateName", "pointsUsed", "freePointsUsed", "premiumPointsUsed", "createdAt"]
+    },
+    "PaymentTransaction": {
+      "title": "PaymentTransaction",
+      "description": "Sandbox GCash payment verification transaction for fan poll point packages.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 200 },
+        "packageId": { "type": "string", "maxLength": 128 },
+        "packageName": { "type": "string", "maxLength": 80 },
+        "pointsCredited": { "type": "integer" },
+        "amountPhp": { "type": "integer" },
+        "paymentMethod": { "type": "string", "enum": ["gcash_sandbox"] },
+        "referenceNumber": { "type": "string", "maxLength": 64 },
+        "gcashMobileMasked": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "enum": ["pending", "verified", "rejected", "refunded"] },
+        "verificationToken": { "type": "string", "maxLength": 160 },
+        "isSandbox": { "type": "boolean" },
+        "adminNote": { "type": "string", "maxLength": 300 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "verifiedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userEmail", "packageId", "packageName", "pointsCredited", "amountPhp", "paymentMethod", "referenceNumber", "gcashMobileMasked", "status", "verificationToken", "isSandbox", "createdAt", "verifiedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Private user account profiles and preferences."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "Administrator privilege registry."
+    },
+    "/housemates/{housemateId}": {
+      "schema": { "$ref": "#/entities/Housemate" },
+      "description": "Public housemate directory."
+    },
+    "/livestreams/{streamId}": {
+      "schema": { "$ref": "#/entities/Livestream" },
+      "description": "Authorized livestream feeds and camera configurations."
+    },
+    "/stream_schedule/{scheduleId}": {
+      "schema": { "$ref": "#/entities/StreamScheduleItem" },
+      "description": "Livestream schedules and upcoming house events."
+    },
+    "/fan_polls/{pollId}": {
+      "schema": { "$ref": "#/entities/FanPoll" },
+      "description": "Community fan polls and aggregate vote counts."
+    },
+    "/fan_poll_votes/{voteId}": {
+      "schema": { "$ref": "#/entities/FanPollVote" },
+      "description": "Per-user fan poll vote records preventing duplicate votes."
+    },
+    "/news_articles/{articleId}": {
+      "schema": { "$ref": "#/entities/NewsArticle" },
+      "description": "News articles and daily house updates."
+    },
+    "/announcements/{announcementId}": {
+      "schema": { "$ref": "#/entities/Announcement" },
+      "description": "Active announcements and breaking notices."
+    },
+    "/site_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/SiteSettings" },
+      "description": "Global site settings and maintenance mode flags."
+    },
+    "/activity_logs/{logId}": {
+      "schema": { "$ref": "#/entities/ActivityLog" },
+      "description": "Admin activity log entries."
+    },
+    "/live_chat_messages/{messageId}": {
+      "schema": { "$ref": "#/entities/LiveChatMessage" },
+      "description": "Real-time viewer chat messages displayed alongside livestreams."
+    },
+    "/ranking_categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/RankingCategory" },
+      "description": "Automatic community ranking categories (Nominate, Save, Support, and custom categories)."
+    },
+    "/ranking_votes/{voteId}": {
+      "schema": { "$ref": "#/entities/RankingVote" },
+      "description": "Per-user category ranking votes preventing duplicate submissions per category."
+    },
+    "/voting_packages/{packageId}": {
+      "schema": { "$ref": "#/entities/VotingPackage" },
+      "description": "Gold-themed voting point packages priced from FREE to ₱90."
+    },
+    "/voting_wallets/{userId}": {
+      "schema": { "$ref": "#/entities/VotingWallet" },
+      "description": "Private user voting point wallets storing free and sandbox premium points."
+    },
+    "/point_votes/{voteId}": {
+      "schema": { "$ref": "#/entities/PointVoteRecord" },
+      "description": "Per-user point voting transactions linked to fan polls."
+    },
+    "/payment_transactions/{txId}": {
+      "schema": { "$ref": "#/entities/PaymentTransaction" },
+      "description": "Sandbox GCash merchant verification transactions."
+    }
+  }
+}

@@ -1,0 +1,81 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --font-display: 'Outfit', system-ui, sans-serif;
+    --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    /* PBB Collab 3.0 Light Starlight Palette */
+    --pbb-canvas: #F3F7FF;
+    --pbb-surface: #FFFFFF;
+    --pbb-surface-elevated: #E9F1FE;
+    --pbb-cobalt: #0E5CD6;
+    --pbb-crimson: #D91E2A;
+    --pbb-gold: #F5B727;
+    --pbb-cyan: #0EA5E9;
+  }
+
+  .dark {
+    /* PBB Collab 3.0 Deep Cosmic Space Palette */
+    --pbb-canvas: #030B1D;
+    --pbb-surface: #08173A;
+    --pbb-surface-elevated: #0C214F;
+    --pbb-cobalt: #1565E8;
+    --pbb-crimson: #E11D2E;
+    --pbb-gold: #F5B727;
+    --pbb-cyan: #38BDF8;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    background-color: var(--pbb-canvas);
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+
+  .font-mono-tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Cosmic Nebula & Starlight Canvas Backdrop inspired by PBB Collab 3.0 */
+.pbb-cosmic-shell {
+  background-color: #F3F7FF;
+  background-image:
+    radial-gradient(ellipse 70% 45% at 12% 0%, rgba(14, 92, 214, 0.08), transparent 65%),
+    radial-gradient(ellipse 55% 40% at 88% 8%, rgba(217, 30, 42, 0.05), transparent 60%),
+    radial-gradient(ellipse 60% 45% at 18% 92%, rgba(14, 165, 233, 0.07), transparent 65%);
+}
+
+.dark .pbb-cosmic-shell {
+  background-color: #030B1D;
+  background-image:
+    radial-gradient(ellipse 75% 50% at 12% 0%, rgba(14, 92, 214, 0.22), transparent 65%),
+    radial-gradient(ellipse 55% 42% at 90% 10%, rgba(217, 30, 42, 0.14), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 15% 88%, rgba(14, 165, 233, 0.18), transparent 65%),
+    radial-gradient(1px 1px at 14% 22%, rgba(255, 255, 255, 0.35), transparent),
+    radial-gradient(1px 1px at 38% 12%, rgba(186, 230, 253, 0.35), transparent),
+    radial-gradient(1.5px 1.5px at 72% 18%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 86% 44%, rgba(186, 230, 253, 0.28), transparent),
+    radial-gradient(1.5px 1.5px at 24% 68%, rgba(255, 255, 255, 0.25), transparent),
+    radial-gradient(1px 1px at 62% 76%, rgba(186, 230, 253, 0.3), transparent);
+}
+
+.pbb-tricolor-line {
+  background: linear-gradient(90deg, #0E5CD6 0%, #38BDF8 28%, #F5B727 52%, #D91E2A 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

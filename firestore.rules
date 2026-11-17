@@ -1,0 +1,613 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'mjay63510@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // 3. Entity Validation Helpers
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'role', 'themePreference', 'notificationsEnabled', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'photoUrl', 'bio', 'favoriteHousemateId', 'role', 'themePreference', 'notificationsEnabled', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128
+        && data.email is string && data.email.size() <= 200
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 250000))
+        && (!('bio' in data) || (data.bio is string && data.bio.size() <= 400))
+        && (!('favoriteHousemateId' in data) || (data.favoriteHousemateId is string && data.favoriteHousemateId.size() <= 128))
+        && data.role in ['user', 'admin']
+        && data.themePreference in ['dark', 'light']
+        && data.notificationsEnabled is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdminRecord(data) {
+      return data.keys().hasAll(['uid', 'email', 'grantedBy', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'grantedBy', 'createdAt'])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.grantedBy is string && data.grantedBy.size() >= 1 && data.grantedBy.size() <= 128
+        && data.createdAt is timestamp;
+    }
+
+    function isValidHousemate(data) {
+      return data.keys().hasAll(['slug', 'fullName', 'nickname', 'hometown', 'tagline', 'biography', 'status', 'avatarColor', 'photoUrl', 'featured', 'enteredDay', 'orderIndex', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['slug', 'fullName', 'nickname', 'age', 'hometown', 'tagline', 'biography', 'status', 'network', 'isImmune', 'nominationPoints', 'avatarColor', 'photoUrl', 'featured', 'enteredDay', 'orderIndex', 'createdAt', 'updatedAt'])
+        && data.slug is string && data.slug.size() >= 1 && data.slug.size() <= 100
+        && data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 100
+        && data.nickname is string && data.nickname.size() >= 1 && data.nickname.size() <= 60
+        && (!('age' in data) || (data.age is int && data.age >= 18 && data.age <= 99))
+        && data.hometown is string && data.hometown.size() >= 1 && data.hometown.size() <= 100
+        && data.tagline is string && data.tagline.size() <= 140
+        && data.biography is string && data.biography.size() >= 1 && data.biography.size() <= 2500
+        && data.status in ['active', 'nominated', 'evicted', 'winner', 'guest']
+        && (!('network' in data) || data.network in ['Kapamilya', 'Kapuso', 'House Guest', 'Evicted'])
+        && (!('isImmune' in data) || data.isImmune is bool)
+        && (!('nominationPoints' in data) || (data.nominationPoints is int && data.nominationPoints >= 0 && data.nominationPoints <= 999))
+        && data.avatarColor is string && data.avatarColor.size() <= 20
+        && data.photoUrl is string && data.photoUrl.size() <= 250000
+        && data.featured is bool
+        && data.enteredDay is int && data.enteredDay >= 0 && data.enteredDay <= 999
+        && data.orderIndex is int && data.orderIndex >= 0 && data.orderIndex <= 9999
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidLivestream(data) {
+      return data.keys().hasAll(['title', 'cameraLabel', 'streamUrl', 'providerType', 'status', 'isPrimary', 'scheduleSummary', 'description', 'orderIndex', 'updatedAt'])
+        && data.keys().hasOnly(['title', 'cameraLabel', 'streamUrl', 'providerType', 'status', 'isPrimary', 'coverImageUrl', 'scheduleSummary', 'description', 'orderIndex', 'cropZoom', 'cropX', 'cropY', 'cropTop', 'cropBottom', 'cropLeft', 'cropRight', 'updatedAt'])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+        && data.cameraLabel is string && data.cameraLabel.size() >= 1 && data.cameraLabel.size() <= 60
+        && data.streamUrl is string && data.streamUrl.size() <= 500
+        && data.providerType in ['youtube', 'iframe', 'external', 'none']
+        && data.status in ['live', 'offline', 'scheduled', 'unavailable']
+        && data.isPrimary is bool
+        && (!('coverImageUrl' in data) || (data.coverImageUrl is string && data.coverImageUrl.size() <= 250000))
+        && data.scheduleSummary is string && data.scheduleSummary.size() <= 200
+        && data.description is string && data.description.size() <= 500
+        && data.orderIndex is int && data.orderIndex >= 0 && data.orderIndex <= 999
+        && (!('cropZoom' in data) || (data.cropZoom is int && data.cropZoom >= 100 && data.cropZoom <= 200))
+        && (!('cropX' in data) || (data.cropX is int && data.cropX >= -30 && data.cropX <= 30))
+        && (!('cropY' in data) || (data.cropY is int && data.cropY >= -30 && data.cropY <= 30))
+        && (!('cropTop' in data) || (data.cropTop is int && data.cropTop >= 0 && data.cropTop <= 30))
+        && (!('cropBottom' in data) || (data.cropBottom is int && data.cropBottom >= 0 && data.cropBottom <= 30))
+        && (!('cropLeft' in data) || (data.cropLeft is int && data.cropLeft >= 0 && data.cropLeft <= 30))
+        && (!('cropRight' in data) || (data.cropRight is int && data.cropRight >= 0 && data.cropRight <= 30))
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidScheduleItem(data) {
+      return data.keys().hasAll(['title', 'category', 'startTime', 'endTime', 'cameraLabel', 'description', 'isUpcoming', 'updatedAt'])
+        && data.keys().hasOnly(['title', 'category', 'startTime', 'endTime', 'targetDateIso', 'cameraLabel', 'description', 'isUpcoming', 'updatedAt'])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+        && data.category in ['livestream', 'challenge', 'nomination', 'eviction', 'special']
+        && data.startTime is string && data.startTime.size() <= 60
+        && data.endTime is string && data.endTime.size() <= 60
+        && (!('targetDateIso' in data) || (data.targetDateIso is string && data.targetDateIso.size() <= 60))
+        && data.cameraLabel is string && data.cameraLabel.size() <= 60
+        && data.description is string && data.description.size() <= 400
+        && data.isUpcoming is bool
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidFanPoll(data) {
+      return data.keys().hasAll(['title', 'description', 'instructions', 'status', 'startDate', 'endDate', 'housemateIds', 'totalVotes', 'optionCounts', 'isFeatured', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['title', 'description', 'instructions', 'status', 'startDate', 'endDate', 'housemateIds', 'totalVotes', 'optionCounts', 'isFeatured', 'lastVoteId', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 140
+        && data.description is string && data.description.size() <= 600
+        && data.instructions is string && data.instructions.size() <= 600
+        && data.status in ['open', 'closed', 'scheduled']
+        && data.startDate is string && data.startDate.size() <= 60
+        && data.endDate is string && data.endDate.size() <= 60
+        && data.housemateIds is list && data.housemateIds.size() >= 1 && data.housemateIds.size() <= 20 && data.housemateIds[0] is string
+        && data.totalVotes is int && data.totalVotes >= 0
+        && data.optionCounts is map
+        && data.isFeatured is bool
+        && (!('lastVoteId' in data) || isValidId(data.lastVoteId))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidFanPollVote(data) {
+      return data.keys().hasAll(['pollId', 'userId', 'housemateId', 'createdAt'])
+        && data.keys().hasOnly(['pollId', 'userId', 'housemateId', 'createdAt'])
+        && data.pollId is string && isValidId(data.pollId)
+        && data.userId is string && data.userId == request.auth.uid
+        && data.housemateId is string && isValidId(data.housemateId)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidNewsArticle(data) {
+      return data.keys().hasAll(['slug', 'title', 'excerpt', 'content', 'category', 'imageUrl', 'authorName', 'featured', 'publishedAt', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['slug', 'title', 'excerpt', 'content', 'category', 'imageUrl', 'featured_image', 'original_article_url', 'source_name', 'authorName', 'featured', 'publishedAt', 'published_at', 'fetched_at', 'approval_status', 'isAutoCollected', 'created_at', 'createdAt', 'updatedAt'])
+        && data.slug is string && data.slug.size() >= 1 && data.slug.size() <= 160
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.excerpt is string && data.excerpt.size() >= 1 && data.excerpt.size() <= 450
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 12000
+        && data.category in ['Latest News', 'Housemate Updates', 'Nomination Results', 'Eviction Updates', 'Voting Updates', 'Challenges and Tasks', 'House Activities', 'Official Announcements', 'Special Episodes']
+        && data.imageUrl is string && data.imageUrl.size() <= 250000
+        && (!('featured_image' in data) || (data.featured_image is string && data.featured_image.size() <= 250000))
+        && (!('original_article_url' in data) || (data.original_article_url is string && data.original_article_url.size() <= 500))
+        && (!('source_name' in data) || data.source_name in ['GMA Network', 'ABS-CBN', 'PINOY BIG BROTHER 3.0', 'PBB ALL ACCESS'])
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80
+        && data.featured is bool
+        && data.publishedAt is string && data.publishedAt.size() <= 60
+        && (!('published_at' in data) || (data.published_at is string && data.published_at.size() <= 60))
+        && (!('fetched_at' in data) || (data.fetched_at is string && data.fetched_at.size() <= 60))
+        && (!('approval_status' in data) || data.approval_status in ['approved', 'pending', 'rejected'])
+        && (!('isAutoCollected' in data) || data.isAutoCollected is bool)
+        && (!('created_at' in data) || (data.created_at is string && data.created_at.size() <= 60))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAnnouncement(data) {
+      return data.keys().hasAll(['title', 'message', 'priority', 'active', 'linkUrl', 'createdAt'])
+        && data.keys().hasOnly(['title', 'message', 'priority', 'active', 'linkUrl', 'createdAt'])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+        && data.message is string && data.message.size() >= 1 && data.message.size() <= 400
+        && data.priority in ['normal', 'urgent']
+        && data.active is bool
+        && data.linkUrl is string && data.linkUrl.size() <= 200
+        && data.createdAt is timestamp;
+    }
+
+    function isValidSiteSettings(data) {
+      return data.keys().hasAll(['siteName', 'tagline', 'heroWelcomeTitle', 'heroDescription', 'heroBannerUrl', 'maintenanceMode', 'maintenanceMessage', 'maintenanceReturnTime', 'announcementBannerEnabled', 'announcementBannerText', 'contactEmail', 'socialLinks', 'seeded', 'updatedAt'])
+        && data.keys().hasOnly(['siteName', 'tagline', 'heroWelcomeTitle', 'heroDescription', 'heroBannerUrl', 'maintenanceMode', 'maintenanceMessage', 'maintenanceReturnTime', 'announcementBannerEnabled', 'announcementBannerText', 'contactEmail', 'socialLinks', 'seeded', 'updatedAt'])
+        && data.siteName is string && data.siteName.size() >= 1 && data.siteName.size() <= 80
+        && data.tagline is string && data.tagline.size() <= 180
+        && data.heroWelcomeTitle is string && data.heroWelcomeTitle.size() >= 1 && data.heroWelcomeTitle.size() <= 120
+        && data.heroDescription is string && data.heroDescription.size() <= 500
+        && data.heroBannerUrl is string && data.heroBannerUrl.size() <= 250000
+        && data.maintenanceMode is bool
+        && data.maintenanceMessage is string && data.maintenanceMessage.size() <= 200
+        && data.maintenanceReturnTime is string && data.maintenanceReturnTime.size() <= 120
+        && data.announcementBannerEnabled is bool
+        && data.announcementBannerText is string && data.announcementBannerText.size() <= 240
+        && data.contactEmail is string && data.contactEmail.size() <= 150
+        && data.socialLinks is map
+        && data.seeded is bool
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidActivityLog(data) {
+      return data.keys().hasAll(['action', 'actorEmail', 'targetType', 'details', 'createdAt'])
+        && data.keys().hasOnly(['action', 'actorEmail', 'targetType', 'details', 'createdAt'])
+        && data.action is string && data.action.size() >= 1 && data.action.size() <= 120
+        && data.actorEmail is string && data.actorEmail.size() >= 1 && data.actorEmail.size() <= 150
+        && data.targetType is string && data.targetType.size() >= 1 && data.targetType.size() <= 60
+        && data.details is string && data.details.size() <= 300
+        && data.createdAt is timestamp;
+    }
+
+    function isValidLiveChatMessage(data) {
+      return data.keys().hasAll(['feedId', 'userId', 'displayName', 'role', 'message', 'createdAt'])
+        && data.keys().hasOnly(['feedId', 'userId', 'displayName', 'role', 'message', 'createdAt'])
+        && data.feedId is string && isValidId(data.feedId)
+        && data.userId is string && data.userId == request.auth.uid && data.userId.size() <= 128
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && data.role in ['user', 'admin']
+        && (data.role == 'user' || isAdmin())
+        && data.message is string && data.message.size() >= 1 && data.message.size() <= 300
+        && data.createdAt is timestamp;
+    }
+
+    function isValidRankingCategory(data) {
+      return data.keys().hasAll(['title', 'shortLabel', 'subtitle', 'seasonHeader', 'actionLabel', 'valueColumnLabel', 'isOpen', 'housemateIds', 'counts', 'totalVotes', 'orderIndex', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['title', 'shortLabel', 'subtitle', 'seasonHeader', 'actionLabel', 'valueColumnLabel', 'isOpen', 'housemateIds', 'counts', 'totalVotes', 'orderIndex', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 80
+        && data.shortLabel is string && data.shortLabel.size() >= 1 && data.shortLabel.size() <= 32
+        && data.subtitle is string && data.subtitle.size() <= 140
+        && data.seasonHeader is string && data.seasonHeader.size() >= 1 && data.seasonHeader.size() <= 80
+        && data.actionLabel is string && data.actionLabel.size() >= 1 && data.actionLabel.size() <= 40
+        && data.valueColumnLabel is string && data.valueColumnLabel.size() >= 1 && data.valueColumnLabel.size() <= 32
+        && data.isOpen is bool
+        && data.housemateIds is list && data.housemateIds.size() >= 1 && data.housemateIds.size() <= 30 && data.housemateIds[0] is string
+        && data.counts is map
+        && data.totalVotes is int && data.totalVotes >= 0
+        && data.orderIndex is int && data.orderIndex >= 0 && data.orderIndex <= 999
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidRankingVote(data) {
+      return data.keys().hasAll(['categoryId', 'userId', 'housemateId', 'createdAt'])
+        && data.keys().hasOnly(['categoryId', 'userId', 'housemateId', 'createdAt'])
+        && data.categoryId is string && isValidId(data.categoryId)
+        && data.userId is string && data.userId == request.auth.uid
+        && data.housemateId is string && isValidId(data.housemateId)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidVotingPackage(data) {
+      return data.keys().hasAll(['name', 'description', 'points', 'pricePhp', 'badgeText', 'isActive', 'isFreeStarter', 'orderIndex', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'description', 'points', 'pricePhp', 'badgeText', 'isActive', 'isFreeStarter', 'orderIndex', 'updatedAt'])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && data.description is string && data.description.size() <= 220
+        && data.points is int && data.points >= 100 && data.points <= 1000
+        && data.pricePhp is int && data.pricePhp >= 0 && data.pricePhp <= 90
+        && data.badgeText is string && data.badgeText.size() <= 40
+        && data.isActive is bool
+        && data.isFreeStarter is bool
+        && data.orderIndex is int && data.orderIndex >= 0 && data.orderIndex <= 999
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidVotingWallet(data) {
+      return data.keys().hasAll(['userId', 'userEmail', 'freePoints', 'premiumPoints', 'totalFreeClaimed', 'totalPurchasedPoints', 'totalPointsSpent', 'deviceFingerprintHash', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'userEmail', 'freePoints', 'premiumPoints', 'totalFreeClaimed', 'totalPurchasedPoints', 'totalPointsSpent', 'deviceFingerprintHash', 'lastVoteId', 'lastTxId', 'createdAt', 'updatedAt'])
+        && data.userId is string && isValidId(data.userId)
+        && data.userEmail is string && data.userEmail.size() <= 200
+        && data.freePoints is int && data.freePoints >= 0 && data.freePoints <= 100
+        && data.premiumPoints is int && data.premiumPoints >= 0 && data.premiumPoints <= 1000000
+        && data.totalFreeClaimed is int && data.totalFreeClaimed >= 0 && data.totalFreeClaimed <= 100
+        && data.totalPurchasedPoints is int && data.totalPurchasedPoints >= 0 && data.totalPurchasedPoints <= 1000000
+        && data.totalPointsSpent is int && data.totalPointsSpent >= 0 && data.totalPointsSpent <= 2000000
+        && data.deviceFingerprintHash is string && data.deviceFingerprintHash.size() >= 8 && data.deviceFingerprintHash.size() <= 128
+        && (!('lastVoteId' in data) || isValidId(data.lastVoteId))
+        && (!('lastTxId' in data) || isValidId(data.lastTxId))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPointVote(data) {
+      return data.keys().hasAll(['pollId', 'pollTitle', 'userId', 'housemateId', 'housemateName', 'pointsUsed', 'freePointsUsed', 'premiumPointsUsed', 'createdAt'])
+        && data.keys().hasOnly(['pollId', 'pollTitle', 'userId', 'housemateId', 'housemateName', 'pointsUsed', 'freePointsUsed', 'premiumPointsUsed', 'createdAt'])
+        && data.pollId is string && isValidId(data.pollId)
+        && data.pollTitle is string && data.pollTitle.size() >= 1 && data.pollTitle.size() <= 140
+        && data.userId is string && data.userId == request.auth.uid && data.userId.size() <= 128
+        && data.housemateId is string && isValidId(data.housemateId)
+        && data.housemateName is string && data.housemateName.size() >= 1 && data.housemateName.size() <= 100
+        && data.pointsUsed is int && data.pointsUsed >= 1 && data.pointsUsed <= 1000
+        && data.freePointsUsed is int && data.freePointsUsed >= 0 && data.freePointsUsed <= 100
+        && data.premiumPointsUsed is int && data.premiumPointsUsed >= 0 && data.premiumPointsUsed <= 1000
+        && data.pointsUsed == data.freePointsUsed + data.premiumPointsUsed
+        && data.createdAt is timestamp;
+    }
+
+    function isValidPaymentTransaction(data) {
+      return data.keys().hasAll(['userId', 'userEmail', 'packageId', 'packageName', 'pointsCredited', 'amountPhp', 'paymentMethod', 'referenceNumber', 'gcashMobileMasked', 'status', 'verificationToken', 'isSandbox', 'createdAt', 'verifiedAt'])
+        && data.keys().hasOnly(['userId', 'userEmail', 'packageId', 'packageName', 'pointsCredited', 'amountPhp', 'paymentMethod', 'referenceNumber', 'gcashMobileMasked', 'status', 'verificationToken', 'isSandbox', 'adminNote', 'createdAt', 'verifiedAt'])
+        && data.userId is string && isValidId(data.userId)
+        && data.userEmail is string && data.userEmail.size() <= 200
+        && data.packageId is string && isValidId(data.packageId)
+        && data.packageName is string && data.packageName.size() >= 1 && data.packageName.size() <= 80
+        && data.pointsCredited is int && data.pointsCredited >= 100 && data.pointsCredited <= 1000
+        && data.amountPhp is int && data.amountPhp >= 0 && data.amountPhp <= 90
+        && data.paymentMethod == 'gcash_sandbox'
+        && data.referenceNumber is string && data.referenceNumber.size() >= 8 && data.referenceNumber.size() <= 64
+        && data.gcashMobileMasked is string && data.gcashMobileMasked.size() >= 4 && data.gcashMobileMasked.size() <= 32
+        && data.status in ['pending', 'verified', 'rejected', 'refunded']
+        && data.verificationToken is string && data.verificationToken.size() >= 16 && data.verificationToken.size() <= 160
+        && data.isSandbox == true
+        && (!('adminNote' in data) || (data.adminNote is string && data.adminNote.size() <= 300))
+        && data.createdAt is timestamp
+        && data.verifiedAt is timestamp;
+    }
+
+    // 4. Collection Rules
+    match /test/connection {
+      allow get: if true;
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUser(incoming())
+        && incoming().uid == userId
+        && incoming().role == 'user'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(userId)
+        && isValidUser(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (isOwner(userId)
+            && incoming().role == existing().role
+            && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoUrl', 'bio', 'favoriteHousemateId', 'themePreference', 'notificationsEnabled', 'email', 'updatedAt']))
+          || (isAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'displayName', 'bio', 'notificationsEnabled', 'updatedAt']))
+        );
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    match /admins/{adminId} {
+      allow get: if isValidId(adminId) && (isOwner(adminId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidId(adminId) && isValidAdminRecord(incoming()) && incoming().uid == adminId && incoming().createdAt == request.time;
+      allow update: if isAdmin() && isValidId(adminId) && isValidAdminRecord(incoming()) && incoming().uid == existing().uid && incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(adminId) && isAdmin();
+    }
+
+    match /housemates/{housemateId} {
+      allow get: if isValidId(housemateId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(housemateId) && isValidHousemate(incoming()) && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isAdmin() && isValidId(housemateId) && isValidHousemate(incoming()) && incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time;
+      allow delete: if isAdmin() && isValidId(housemateId);
+    }
+
+    match /livestreams/{streamId} {
+      allow get: if isValidId(streamId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(streamId) && isValidLivestream(incoming()) && incoming().updatedAt == request.time;
+      allow update: if isAdmin() && isValidId(streamId) && isValidLivestream(incoming()) && incoming().updatedAt == request.time;
+      allow delete: if isAdmin() && isValidId(streamId);
+    }
+
+    match /stream_schedule/{scheduleId} {
+      allow get: if isValidId(scheduleId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(scheduleId) && isValidScheduleItem(incoming()) && incoming().updatedAt == request.time;
+      allow update: if isAdmin() && isValidId(scheduleId) && isValidScheduleItem(incoming()) && incoming().updatedAt == request.time;
+      allow delete: if isAdmin() && isValidId(scheduleId);
+    }
+
+    match /fan_polls/{pollId} {
+      allow get: if isValidId(pollId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(pollId) && isValidFanPoll(incoming()) && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(pollId) && isValidFanPoll(incoming()) && incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time && (
+        isAdmin() ||
+        (
+          isVerifiedUser()
+          && existing().status == 'open'
+          && incoming().diff(existing()).affectedKeys().hasOnly(['totalVotes', 'optionCounts', 'updatedAt'])
+          && incoming().totalVotes == existing().totalVotes + 1
+          && !exists(/databases/$(database)/documents/fan_poll_votes/$(pollId + '_' + request.auth.uid))
+          && existsAfter(/databases/$(database)/documents/fan_poll_votes/$(pollId + '_' + request.auth.uid))
+        ) ||
+        (
+          isVerifiedUser()
+          && existing().status == 'open'
+          && incoming().diff(existing()).affectedKeys().hasOnly(['totalVotes', 'optionCounts', 'lastVoteId', 'updatedAt'])
+          && 'lastVoteId' in incoming()
+          && isValidId(incoming().lastVoteId)
+          && !exists(/databases/$(database)/documents/point_votes/$(incoming().lastVoteId))
+          && existsAfter(/databases/$(database)/documents/point_votes/$(incoming().lastVoteId))
+          && getAfter(/databases/$(database)/documents/point_votes/$(incoming().lastVoteId)).data.userId == request.auth.uid
+          && getAfter(/databases/$(database)/documents/point_votes/$(incoming().lastVoteId)).data.pollId == pollId
+          && incoming().totalVotes == existing().totalVotes + getAfter(/databases/$(database)/documents/point_votes/$(incoming().lastVoteId)).data.pointsUsed
+          && existsAfter(/databases/$(database)/documents/voting_wallets/$(request.auth.uid))
+          && getAfter(/databases/$(database)/documents/voting_wallets/$(request.auth.uid)).data.lastVoteId == incoming().lastVoteId
+        )
+      );
+      allow delete: if isAdmin() && isValidId(pollId);
+    }
+
+    match /fan_poll_votes/{voteId} {
+      allow get: if isSignedIn() && isValidId(voteId) && (
+        voteId.matches('^.+_' + request.auth.uid + '$') ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isVerifiedUser()
+        && isValidId(voteId)
+        && isValidFanPollVote(incoming())
+        && voteId == (incoming().pollId + '_' + request.auth.uid)
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/fan_polls/$(incoming().pollId))
+        && get(/databases/$(database)/documents/fan_polls/$(incoming().pollId)).data.status == 'open';
+      allow update, delete: if isValidId(voteId) && isAdmin();
+    }
+
+    match /news_articles/{articleId} {
+      allow get: if isValidId(articleId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(articleId) && isValidNewsArticle(incoming()) && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isAdmin() && isValidId(articleId) && isValidNewsArticle(incoming()) && incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time;
+      allow delete: if isAdmin() && isValidId(articleId);
+    }
+
+    match /announcements/{announcementId} {
+      allow get: if isValidId(announcementId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(announcementId) && isValidAnnouncement(incoming()) && incoming().createdAt == request.time;
+      allow update: if isAdmin() && isValidId(announcementId) && isValidAnnouncement(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin() && isValidId(announcementId);
+    }
+
+    match /site_settings/{settingId} {
+      allow get: if settingId == 'global';
+      allow list: if true;
+      allow create, update: if isAdmin() && settingId == 'global' && isValidSiteSettings(incoming()) && incoming().updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /activity_logs/{logId} {
+      allow get: if isValidId(logId) && isAdmin();
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidId(logId) && isValidActivityLog(incoming()) && incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /live_chat_messages/{messageId} {
+      allow get: if isValidId(messageId);
+      allow list: if true;
+      allow create: if isVerifiedUser()
+        && isValidId(messageId)
+        && isValidLiveChatMessage(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isValidId(messageId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+    }
+
+    match /ranking_categories/{categoryId} {
+      allow get: if isValidId(categoryId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(categoryId) && isValidRankingCategory(incoming()) && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(categoryId) && isValidRankingCategory(incoming()) && incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time && (
+        isAdmin() ||
+        (
+          isVerifiedUser()
+          && existing().isOpen == true
+          && incoming().diff(existing()).affectedKeys().hasOnly(['totalVotes', 'counts', 'updatedAt'])
+          && incoming().totalVotes == existing().totalVotes + 1
+          && !exists(/databases/$(database)/documents/ranking_votes/$(categoryId + '_' + request.auth.uid))
+          && existsAfter(/databases/$(database)/documents/ranking_votes/$(categoryId + '_' + request.auth.uid))
+        )
+      );
+      allow delete: if isAdmin() && isValidId(categoryId);
+    }
+
+    match /ranking_votes/{voteId} {
+      allow get: if isSignedIn() && isValidId(voteId) && (
+        voteId.matches('^.+_' + request.auth.uid + '$') ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isVerifiedUser()
+        && isValidId(voteId)
+        && isValidRankingVote(incoming())
+        && voteId == (incoming().categoryId + '_' + request.auth.uid)
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/ranking_categories/$(incoming().categoryId))
+        && get(/databases/$(database)/documents/ranking_categories/$(incoming().categoryId)).data.isOpen == true;
+      allow update, delete: if isValidId(voteId) && isAdmin();
+    }
+
+    match /voting_packages/{packageId} {
+      allow get: if isValidId(packageId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(packageId) && isValidVotingPackage(incoming()) && incoming().updatedAt == request.time;
+      allow update: if isAdmin() && isValidId(packageId) && isValidVotingPackage(incoming()) && incoming().updatedAt == request.time;
+      allow delete: if isAdmin() && isValidId(packageId);
+    }
+
+    match /voting_wallets/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidVotingWallet(incoming())
+        && incoming().userId == userId
+        && incoming().freePoints == 100
+        && incoming().premiumPoints == 0
+        && incoming().totalFreeClaimed == 100
+        && incoming().totalPurchasedPoints == 0
+        && incoming().totalPointsSpent == 0
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isValidVotingWallet(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            isVerifiedUser()
+            && isOwner(userId)
+            && incoming().diff(existing()).affectedKeys().hasOnly(['freePoints', 'premiumPoints', 'totalPointsSpent', 'lastVoteId', 'updatedAt'])
+            && 'lastVoteId' in incoming()
+            && isValidId(incoming().lastVoteId)
+            && incoming().freePoints <= existing().freePoints
+            && incoming().premiumPoints <= existing().premiumPoints
+            && incoming().totalPointsSpent > existing().totalPointsSpent
+            && ((existing().freePoints - incoming().freePoints) + (existing().premiumPoints - incoming().premiumPoints)) == (incoming().totalPointsSpent - existing().totalPointsSpent)
+            && !exists(/databases/$(database)/documents/point_votes/$(incoming().lastVoteId))
+            && existsAfter(/databases/$(database)/documents/point_votes/$(incoming().lastVoteId))
+            && getAfter(/databases/$(database)/documents/point_votes/$(incoming().lastVoteId)).data.userId == userId
+            && getAfter(/databases/$(database)/documents/point_votes/$(incoming().lastVoteId)).data.pointsUsed == (incoming().totalPointsSpent - existing().totalPointsSpent)
+            && getAfter(/databases/$(database)/documents/point_votes/$(incoming().lastVoteId)).data.freePointsUsed == (existing().freePoints - incoming().freePoints)
+            && getAfter(/databases/$(database)/documents/point_votes/$(incoming().lastVoteId)).data.premiumPointsUsed == (existing().premiumPoints - incoming().premiumPoints)
+          )
+          || (
+            isVerifiedUser()
+            && isOwner(userId)
+            && incoming().diff(existing()).affectedKeys().hasOnly(['premiumPoints', 'totalPurchasedPoints', 'lastTxId', 'updatedAt'])
+            && 'lastTxId' in incoming()
+            && isValidId(incoming().lastTxId)
+            && !exists(/databases/$(database)/documents/payment_transactions/$(incoming().lastTxId))
+            && existsAfter(/databases/$(database)/documents/payment_transactions/$(incoming().lastTxId))
+            && getAfter(/databases/$(database)/documents/payment_transactions/$(incoming().lastTxId)).data.userId == userId
+            && getAfter(/databases/$(database)/documents/payment_transactions/$(incoming().lastTxId)).data.status == 'verified'
+            && getAfter(/databases/$(database)/documents/payment_transactions/$(incoming().lastTxId)).data.isSandbox == true
+            && incoming().premiumPoints == existing().premiumPoints + getAfter(/databases/$(database)/documents/payment_transactions/$(incoming().lastTxId)).data.pointsCredited
+            && incoming().totalPurchasedPoints == existing().totalPurchasedPoints + getAfter(/databases/$(database)/documents/payment_transactions/$(incoming().lastTxId)).data.pointsCredited
+          )
+        );
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    match /point_votes/{voteId} {
+      allow get: if isSignedIn() && isValidId(voteId) && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isVerifiedUser()
+        && isValidId(voteId)
+        && isValidPointVote(incoming())
+        && incoming().userId == request.auth.uid
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/fan_polls/$(incoming().pollId))
+        && get(/databases/$(database)/documents/fan_polls/$(incoming().pollId)).data.status == 'open'
+        && exists(/databases/$(database)/documents/voting_wallets/$(request.auth.uid))
+        && existsAfter(/databases/$(database)/documents/voting_wallets/$(request.auth.uid))
+        && getAfter(/databases/$(database)/documents/voting_wallets/$(request.auth.uid)).data.lastVoteId == voteId;
+      allow update, delete: if isValidId(voteId) && isAdmin();
+    }
+
+    match /payment_transactions/{txId} {
+      allow get: if isSignedIn() && isValidId(txId) && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isVerifiedUser()
+        && isValidId(txId)
+        && isValidPaymentTransaction(incoming())
+        && incoming().userId == request.auth.uid
+        && incoming().status == 'verified'
+        && incoming().isSandbox == true
+        && incoming().createdAt == request.time
+        && incoming().verifiedAt == request.time
+        && exists(/databases/$(database)/documents/voting_wallets/$(request.auth.uid))
+        && existsAfter(/databases/$(database)/documents/voting_wallets/$(request.auth.uid))
+        && getAfter(/databases/$(database)/documents/voting_wallets/$(request.auth.uid)).data.lastTxId == txId;
+      allow update: if isAdmin()
+        && isValidId(txId)
+        && isValidPaymentTransaction(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin() && isValidId(txId);
+    }
+  }
+}

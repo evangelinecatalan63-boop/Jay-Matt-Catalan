@@ -1,0 +1,6 @@
+{
+  "name": "PBB ALL ACCESS",
+  "description": "The premier Pinoy Big Brother-inspired online hub for 24/7 authorized livestreams, housemate profiles, fan polls, and real-time house updates.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
